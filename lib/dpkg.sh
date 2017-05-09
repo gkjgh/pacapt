@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Purpose: Debian / Ubuntu support
-# Author : Anh K. Huynh
+# Author : Kevin J. Goldman
 # License: Fair license (http://www.opensource.org/licenses/fair)
-# Source : http://github.com/icy/pacapt/
+# Source : http://github.com/gkjgh/pacapt/
 
-# Copyright (C) 2010 - 2014 Anh K. Huynh
+# Copyright (C) 2010 - 2017 Anh K. Huynh
 #
 # Usage of the works is permitted provided that this instrument is
 # retained with the works, so that any entity that uses the works is
@@ -13,142 +13,161 @@
 #
 # DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
+_format_output()
+{
+    # auto option is invalid
+    _CO=
+    if [[ -t 1 ]]; then
+        _CO=$(echo always)
+    else
+        _CO=$(echo never)
+    fi
+    egrep --color=${_CO} '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
+#    egrep --color=auto '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
+}
+
+_apt-cache_rdepends()
+{
+    apt-cache rdepends --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
+        | sed '2s/ / (Pre-)/' | sed '1d' | sed '2,$s/$/,/' \
+        | sed '$s/,//' | xargs | _format_output
+    apt-cache rdepends --no-pre-depends --no-depends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
+        | sed '2s/Depends/Recommends/' | sed '1d' | sed '2,$s/$/,/' \
+        | sed '$s/,//' | xargs | _format_output
+}
+
 _dpkg_init() {
-  :
+  export GREP_COLOR='1;37'
 }
 
-dpkg_Q() {
-  if [[ "$_TOPT" == "q" ]]; then
-    dpkg -l \
-    | grep -E '^[hi]i' \
-    | awk '{print $2}'
-  elif [[ "$_TOPT" == "" ]]; then
-    dpkg -l "$@" \
-    | grep -E '^[hi]i'
-  else
-    _not_implemented
-  fi
+dpkg_Q()
+{
+    dpkg-query -l "${@}" | grep '^[ihr]'
 }
 
-dpkg_Qi() {
-  dpkg-query -s "$@"
+dpkg_Qs()
+{
+    dpkg-query -l "*${@}*" | sed '/^[up]/d'
 }
 
-dpkg_Ql() {
-  if [[ -n "$@" ]]; then
-    dpkg-query -L "$@"
-    return
-  fi
+dpkg_Qi()
+{
+    _mark=$([[ $(apt-mark showauto "${@}") == "${@}" ]] && echo auto || echo manual )
+    dpkg-query -s "${@}" | sed '/^Installed/a\Installed-Reason: '${_mark} \
+        | sed -r '/^Maintainer|^Architecture/d' | _format_output
+    _apt-cache_rdepends "--installed ${@}"
+}
 
-  dpkg -l \
-  | grep -E '^[hi]i' \
-  | awk '{print $2}' \
-  | while read _pkg; do
-      if [[ "$_TOPT" == "q" ]]; then
-        dpkg-query -L "$_pkg"
-      else
-        dpkg-query -L "$_pkg" \
-        | while read _line; do
-            echo "$_pkg $_line"
-          done
-      fi
+dpkg_Ql()
+{
+    if [[ -n "${@}" ]]; then
+        dpkg-query -L "${@}"
+        return
+    fi
+
+    dpkg-query -l | grep '^[ihr]' | awk '{print $2}' | while read _pkg; do
+        dpkg-query -L "${_pkg}" | while read _line; do
+        echo "${_pkg} ${_line}"
+        done
     done
 }
 
-dpkg_Qo() {
-  dpkg-query -S "$@"
+dpkg_Qo()
+{
+    dpkg-query -S "${@}"
 }
 
-dpkg_Qp() {
-  dpkg-deb -I "$@"
+dpkg_Qu()
+{
+    apt update
+    apt list --upgradable --all-versions
 }
 
-dpkg_Qu() {
-  apt-get upgrade --trivial-only "$@"
+dpkg_U()
+{
+    dpkg -i "${@}"
 }
 
-# NOTE: Some field is available for dpkg >= 1.16.2
-# NOTE: Debian:Squeeze has dpkg < 1.16.2
-dpkg_Qs() {
-  # dpkg >= 1.16.2 dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\t${Version}\t${binary:Summary}\n'
-  dpkg-query -W -f='${Status} ${Package}\t${Version}\t${Description}\n' \
-  | grep -E '^((hold)|(install)|(deinstall))' \
-  | sed -r -e 's#^(\w+ ){3}##g' \
-  | grep -Ei "${@:-.}"
+dpkg_S()
+{
+    apt-get install --reinstall "${@}"
 }
 
-dpkg_Rs() {
-  if [[ "$_TOPT" == "" ]]; then
-    apt-get autoremove "$@"
-  else
-    _not_implemented
-  fi
+dpkg_Sy()
+{
+    apt-get update
 }
 
-dpkg_Rn() {
-  apt-get purge "$@"
+dpkg_Su()
+{
+    apt-get upgrade
 }
 
-dpkg_Rns() {
-  apt-get --purge autoremove "$@"
+dpkg_Syu()
+{
+    apt-get update && apt-get upgrade
 }
 
-dpkg_R() {
-  apt-get remove "$@"
+dpkg_Sw()
+{
+    apt-get download "${@}"
 }
 
-dpkg_Si() {
-  apt-cache show "$@"
+dpkg_Ss()
+{
+    apt-cache -n search "${@}" | while read _ori_txt; do
+        _name=$(echo ${_ori_txt} | awk '{print $1}')
+        _ver=$(apt-cache policy ${_name} \
+            | sed -rn '/Installed:\s[0-9]+/p' | xargs)
+        [[ -z ${_ver} ]] && echo ${_ori_txt} || \
+            echo ${_ori_txt} | awk '{printf $1 "'" (${_ver}) "'"; \
+            for (i=2; i<=NF; i++) {printf "%s ", $i}; printf "\n"}' \
+            | _format_output
+    done
 }
 
-dpkg_Suy() {
-  apt-get update \
-  && apt-get upgrade "$@"
+dpkg_Si()
+{
+    apt-cache show "${@}" | sed -r \
+        '/^Maintainer|^Architecture|^Description-md5|^MD5sum|^SHA/d' \
+        | _format_output
 }
 
-dpkg_Su() {
-  apt-get upgrade "$@"
+dpkg_Sii()
+{
+    dpkg_Si "${@}"
+    _apt-cache_rdepends "${@}"
 }
 
-# See also https://github.com/icy/pacapt/pull/78
-# This `-w` option is implemented in `00_core/_translate_w`
-#
-# dpkg_Sw() {
-#   apt-get --download-only install "$@"
-# }
-
-# FIXME: Should we remove "$@"?
-dpkg_Sy() {
-  apt-get update "$@"
+dpkg_Sc()
+{
+    apt-get autoclean
 }
 
-dpkg_Ss() {
-  apt-cache search "$@"
+dpkg_Scc()
+{
+    apt-get autoclean && apt-get clean
 }
 
-dpkg_Sc() {
-  apt-get clean "$@"
+dpkg_R()
+{
+    apt-get remove "${@}"
 }
 
-dpkg_Scc() {
-  apt-get autoclean "$@"
+dpkg_Rs()
+{
+    apt-get remove "${@}" && apt-get autoremove
 }
 
-dpkg_S() {
-  apt-get install $_TOPT "$@"
+dpkg_Rn()
+{
+    apt-get purge "${@}"
 }
 
-dpkg_U() {
-  dpkg -i "$@"
-}
-
-dpkg_Sii() {
-  apt-cache rdepends "$@"
-}
-
-dpkg_Sccc() {
-  rm -fv /var/cache/apt/*.bin
-  rm -fv /var/cache/apt/archives/*.*
-  rm -fv /var/lib/apt/lists/*.*
-  apt-get autoclean
+dpkg_Rns()
+{
+    apt-get purge "${@}" && apt-get autoremove && \
+        dpkg -P $(dpkg-query -l | awk '/^rc/ {print $2}')
 }
