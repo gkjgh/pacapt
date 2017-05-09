@@ -111,7 +111,7 @@ Some features may be missing in the stable script. Please don't change
 this table manually when you create new pull request.)_
 
 ```
-           Q Qc Qi Ql Qm Qo Qp Qs Qu R Rn Rns Rs S Sc Scc Sccc Si Sii Sl Ss Su Suy Sw Sy U
+           Q Qc Qi Ql Qm Qo Qp Qs Qu R Rn Rns Rs S Sc Scc Sccc Si Sii Sl Ss Su Syu Sw Sy U
       apk  y  .  y  y  .  y  .  y  y y  y   y  y y  y   y    y  y   y  y  y  y   y  y  y y
      cave  y  .  y  y  .  y  y  y  y y  y   y  y y  y   y    y  y   .  .  y  y   y  .  y y
       dnf  y  y  y  y  y  y  y  y  y y  .   .  . y  y   y    y  y   .  y  y  y   y  y  y y
