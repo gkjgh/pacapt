@@ -1,0 +1,787 @@
+#!/bin/bash
+
+# Purpose: A wrapper for all Unix package managers
+# License: Fair license (http://www.opensource.org/licenses/fair)
+# Source : http://github.com/icy/pacapt/
+# Version: 2.3.13
+# Authors: Anh K. Huynh et al.
+
+# Copyright (C) 2010 - 2016 \
+#                           | 10sr (10sr)
+#                           | Alexander Dupuy (dupuy)
+#                           | Anh K. Huynh (icy)
+#                           | Alex Lyon (Arcterus)
+#                           | Carl X. Su (bcbcarl)
+#                           | Cuong Manh Le (Gnouc)
+#                           | Daniel YC Lin (dlintw)
+#                           | Danny George (dangets)
+#                           | Darshit Shah (darnir)
+#                           | Eric Crosson (EricCrosson)
+#                           | GijsTimmers (GijsTimmers)
+#                           | Hà-Dương Nguyễn (cmpitg)
+#                           | Huy Ngô (NgoHuy)
+#                           | James Pearson (xiongchiamiov)
+#                           | Janne Heß (dasJ)
+#                           | Jiawei Zhou (4679)
+#                           | Karol Blazewicz
+#                           | Kevin Brubeck (unhammer)
+#                           | Konrad Borowski (xfix)
+#                           | Kylie McClain (somasis)
+#                           | Pival81
+#                           | Siôn Le Roux (sinisterstuf)
+#                           | Vojtech Letal (letalvoj)
+#
+# Usage of the works is permitted provided that this instrument is
+# retained with the works, so that any entity that uses the works is
+# notified of this instrument.
+#
+# DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+#
+
+export PACAPT_VERSION='2.3.13'
+
+_help() {
+  cat <<'EOF'
+NAME
+  pacapt - An Arch's pacman-like package manager for some Unices.
+  More details can be found at https://github.com/icy/pacapt .
+
+SYNTAX
+
+  $ pacapt <option(s)> <operation(s)> <package(s)>
+
+OPERATIONS
+
+  Basic
+    -h or --help    print this help message
+    -P              print supported operations
+    -V              print version information
+
+  Query
+    -Q              list all installed packages
+    -Qc <package>   show package's changelog
+    -Qi <package>   print package status
+    -Ql <package>   list package's files
+    -Qm             list installed packages that aren't available
+                    in any installation source
+    -Qo <file>      query package that provides <file>
+    -Qp <file>      query a package file (don't use package database)
+    -Qs <package>   search for installed package
+
+  Synchronize
+    -S <package>    install package(s)
+    -Ss <package>   search for packages
+    -Su             upgrade the system
+    -Sy             update package database
+    -Syu            update package database, then upgrade the system
+
+  Remove / Clean up
+    -R <packages>   remove some packages
+    -Sc             delete old downloaded packages
+    -Scc            delete all downloaded packages
+    -Sccc           clean variant files.
+                    (debian) See also http://dragula.viettug.org/blogs/646
+
+OPTIONS
+
+    -w              download packages but don't install them
+    --noconfirm     don't wait for user's confirmation
+
+EXAMPLES
+
+  1. To install a package from Debian's backports repository
+      $ pacapt -S foobar -t lenny-backports
+      $ pacapt -S -- -t lenny-backports foobar
+
+  2. To update package database and then update your system
+      $ pacapt -Syu
+
+  3. To download a package without installing it
+      $ pacapt -Sw foobar
+
+NOTES
+
+  When being executed on Arch-based system, the tool simply invokes
+  the system package manager (`/usr/bin/pacman`.)
+
+  Though you can specify option by its own word, for example,
+      $ pacapt -S -y -u
+
+  it's always the best to combine them
+      $ pacapt -Syu
+EOF
+
+}
+
+
+
+
+_error() {
+  echo >&2 "Error: $*"
+  return 1
+}
+
+_die() {
+  echo >&2 "$@"
+  exit 1
+}
+
+_not_implemented() {
+  echo >&2 "${_PACMAN}: '${_POPT}:${_SOPT}:${_TOPT}' operation is invalid or not implemented."
+  return 1
+}
+
+_removing_is_dangerous() {
+  echo >&2 "${_PACMAN}: removing with '$*' is too dangerous"
+  return 1
+}
+
+# Detect package type from /etc/issue
+# FIXME: Using new `issue` file (location)
+_issue2pacman() {
+  local _pacman
+
+  _pacman="$1"; shift
+
+  # The following line is added by Daniel YC Lin to support SunOS.
+  #
+  #   [ `uname` = "$1" ] && _PACMAN="$_pacman" && return
+  #
+  # This is quite tricky and fast, however I don't think it works
+  # on Linux/BSD systems. To avoid extra check, I slightly modify
+  # the code to make sure it's only applicable on SunOS.
+  #
+  [[ "$(uname)" == "SunOS" ]] && _PACMAN="$_pacman" && return
+
+  $GREP -qis "$@" /etc/issue \
+  && _PACMAN="$_pacman" && return
+
+  $GREP -qis "$@" /etc/os-release \
+  && _PACMAN="$_pacman" && return
+}
+
+# Detect package type
+_PACMAN_detect() {
+  _issue2pacman sun_tools "SunOS" && return
+  _issue2pacman pacman "Arch Linux" && return
+  _issue2pacman dpkg "Debian GNU/Linux" && return
+  _issue2pacman dpkg "Ubuntu" && return
+  _issue2pacman cave "Exherbo Linux" && return
+  _issue2pacman yum "CentOS" && return
+  _issue2pacman yum "Red Hat" && return
+  #
+  # FIXME: The multiple package issue.
+  #
+  # On #63, Huy commented out this line. This is because new generation
+  # of Fedora uses `dnf`, and `yum` becomes a legacy tool. On old Fedora
+  # system, `yum` is still detectable by looking up `yum` binary.
+  #
+  # I'm not sure how to support this case easily. Let's wait, e.g, 5 years
+  # from now to make `dnf` becomes a default? Oh no!
+  #
+  # And here why `pacman` is still smart. Debian has a set of tools.
+  # Fedora has `yum` (and a set of add-ons). Now Fedora moves to `dnf`.
+  # This means that a package manager is not a heart of a system ;)
+  #
+  # _issue2pacman yum "Fedora" && return
+  _issue2pacman zypper "SUSE" && return
+  _issue2pacman pkg_tools "OpenBSD" && return
+  _issue2pacman pkg_tools "Bitrig" && return
+  _issue2pacman apk "Alpine Linux" && return
+
+  [[ -z "$_PACMAN" ]] || return
+
+  # Prevent a loop when this script is installed on non-standard system
+  if [[ -x "/usr/bin/pacman" ]]; then
+    $GREP -q "$FUNCNAME" '/usr/bin/pacman' >/dev/null 2>&1
+    [[ $? -ge 1 ]] && _PACMAN="pacman" \
+    && return
+  fi
+
+  [[ -x "/usr/bin/apt-get" ]] && _PACMAN="dpkg" && return
+  [[ -x "/data/data/com.termux/files/usr/bin/apt-get" ]] && _PACMAN="dpkg" && return
+  [[ -x "/usr/bin/cave" ]] && _PACMAN="cave" && return
+  [[ -x "/usr/bin/dnf" ]] && _PACMAN="dnf" && return
+  [[ -x "/usr/bin/yum" ]] && _PACMAN="yum" && return
+  [[ -x "/opt/local/bin/port" ]] && _PACMAN="macports" && return
+  [[ -x "/usr/bin/emerge" ]] && _PACMAN="portage" && return
+  [[ -x "/usr/bin/zypper" ]] && _PACMAN="zypper" && return
+  [[ -x "/usr/sbin/pkg" ]] && _PACMAN="pkgng" && return
+  # make sure pkg_add is after pkgng, FreeBSD base comes with it until converted
+  [[ -x "/usr/sbin/pkg_add" ]] && _PACMAN="pkg_tools" && return
+  [[ -x "/usr/sbin/pkgadd" ]] && _PACMAN="sun_tools" && return
+  [[ -x "/sbin/apk" ]] && _PACMAN="apk" && return
+  [[ -x "/usr/bin/tazpkg" ]] && _PACMAN="tazpkg" && return
+
+  command -v brew >/dev/null && _PACMAN="homebrew" && return
+
+  return 1
+}
+
+# Translate -w option. Please note this is only valid when installing
+# a package from remote, aka. when '-S' operation is performed.
+_translate_w() {
+
+  echo "$_EOPT" | $GREP -q ":w:" || return 0
+
+  local _opt=
+  local _ret=0
+
+  case "$_PACMAN" in
+  "dpkg")     _opt="-d";;
+  "cave")     _opt="-f";;
+  "macports") _opt="fetch";;
+  "portage")  _opt="--fetchonly";;
+  "zypper")   _opt="--download-only";;
+  "pkgng")    _opt="fetch";;
+  "yum")      _opt="--downloadonly";
+    if ! rpm -q 'yum-downloadonly' >/dev/null 2>&1; then
+      _error "'yum-downloadonly' package is required when '-w' is used."
+      _ret=1
+    fi
+    ;;
+  "tazpkg")
+    _error "$_PACMAN: Use '$_PACMAN get' to download and save packages to current directory."
+    _ret=1
+    ;;
+  "apk")      _opt="fetch";;
+  *)
+    _opt=""
+    _ret=1
+
+    _error "$_PACMAN: Option '-w' is not supported/implemented."
+    ;;
+  esac
+
+  echo $_opt
+  return "$_ret"
+}
+
+_translate_debug() {
+  echo "$_EOPT" | $GREP -q ":v:" || return 0
+
+  case "$_PACMAN" in
+  "tazpkg")
+    _error "$_PACMAN: Option '-v' (debug) is not supported/implemented by tazpkg"
+    return 1
+    ;;
+  esac
+
+  echo "-v"
+}
+
+# Translate the --noconfirm option.
+# FIXME: does "yes | pacapt" just help?
+_translate_noconfirm() {
+
+  echo "$_EOPT" | $GREP -q ":noconfirm:" || return 0
+
+  local _opt=
+  local _ret=0
+
+  case "$_PACMAN" in
+  # FIXME: Update environment DEBIAN_FRONTEND=noninteractive
+  # FIXME: There is also --force-yes for a stronger case
+  "dpkg")   _opt="--yes";;
+  "dnf")    _opt="--assumeyes";;
+  "yum")    _opt="--assumeyes";;
+  # FIXME: pacman has 'assume-yes' and 'assume-no'
+  # FIXME: zypper has better mode. Similar to dpkg (Debian).
+  "zypper") _opt="--no-confirm";;
+  "pkgng")  _opt="-y";;
+  "tazpkg") _opt="--auto";;
+  *)
+    _opt=""
+    _ret=1
+    _error "$_PACMAN: Option '--noconfirm' is not supported/implemented."
+    ;;
+  esac
+
+  echo $_opt
+  return $_ret
+}
+
+_translate_all() {
+  local _args=""
+  local _debug="$(_translate_debug)"
+  local _noconfirm="$(_translate_noconfirm)"
+
+  _args="$(_translate_w)" || return 1
+  _args="${_args}${_noconfirm:+ }${_noconfirm}" || return 1
+  _args="${_args}${_debug:+ }${_debug}" || return 1
+
+  export _EOPT="${_args# }"
+}
+
+_print_supported_operations() {
+  local _pacman="$1"
+  echo -n "pacapt: available operations:"
+  $GREP -E "^${_pacman}_[^ \t]+\(\)" "$0" \
+  | $AWK -F '(' '{print $1}' \
+  | sed -e "s/${_pacman}_//g" \
+  | while read O; do
+      echo -n " $O"
+    done
+  echo
+}
+
+_print_pacapt_version() {
+  cat <<EOF
+pacapt version '${1:-unknown}'
+
+Copyright (C) 2010 - $(date +%Y) Anh K. Huynh et al.
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any
+entity that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+EOF
+}
+
+
+
+
+_format_output()
+{
+    # auto option is invalid
+    _CO=
+    if [[ -t 1 ]]; then
+        _CO=$(echo always)
+    else
+        _CO=$(echo never)
+    fi
+    egrep --color=${_CO} '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
+#    egrep --color=auto '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
+}
+
+_apt-cache_rdepends()
+{
+    apt-cache rdepends --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
+        | sed '2s/ / (Pre-)/' | sed '1d' | sed '2,$s/$/,/' \
+        | sed '$s/,//' | xargs | _format_output
+    apt-cache rdepends --no-pre-depends --no-depends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
+        | sed '2s/Depends/Recommends/' | sed '1d' | sed '2,$s/$/,/' \
+        | sed '$s/,//' | xargs | _format_output
+    apt-cache rdepends --no-pre-depends --no-depends --no-recommends \
+        --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
+        | sed '2s/Depends/Suggests/' | sed '1d' | sed '2,$s/$/,/' \
+        | sed '$s/,//' | xargs | _format_output
+}
+
+_dpkg_init() {
+  export GREP_COLOR='1;37'
+}
+
+dpkg_Q()
+{
+    dpkg-query -l "${@}" | grep '^[ihr]'
+}
+
+dpkg_Qs()
+{
+    dpkg-query -l "*${@}*" | sed '/^[up]/d'
+}
+
+dpkg_Qi()
+{
+    _ary=(${@})
+    _len=${#_ary[@]}
+    if [[ ${_len} -eq 0 ]]; then return; fi
+    for _pkg in ${_ary[@]}
+    do
+        _mark=$([[ $(apt-mark showauto ${_pkg}) == ${_pkg} ]] \
+            && echo auto || echo manual)
+        dpkg-query -s ${_pkg} | sed '/^Installed/a\Installed-Reason: '${_mark} \
+            | sed -r '/^Maintainer|^Architecture/d' | _format_output
+        _apt-cache_rdepends "--installed ${_pkg}"
+        if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
+    done
+}
+
+dpkg_Ql()
+{
+    if [[ -n "${@}" ]]; then
+        dpkg-query -L "${@}"
+        return
+    fi
+
+    dpkg-query -l | grep '^[ihr]' | awk '{print $2}' | while read _pkg; do
+        dpkg-query -L "${_pkg}" | while read _line; do
+        echo "${_pkg} ${_line}"
+        done
+    done
+}
+
+dpkg_Qo()
+{
+    dpkg-query -S "${@}"
+}
+
+dpkg_Qu()
+{
+    apt update
+    apt list --upgradable --all-versions
+}
+
+dpkg_U()
+{
+    dpkg -i "${@}"
+}
+
+dpkg_S()
+{
+    apt-get install --reinstall "${@}"
+}
+
+dpkg_Sy()
+{
+    apt-get update
+}
+
+dpkg_Su()
+{
+    apt-get upgrade
+}
+
+dpkg_Syu()
+{
+    apt-get update && apt-get upgrade
+}
+
+dpkg_Sw()
+{
+    apt-get download "${@}"
+}
+
+dpkg_Ss()
+{
+    apt-cache -n search "${@}" | while read _ori_txt; do
+        _name=$(echo ${_ori_txt} | awk '{print $1}')
+        _ver=$(apt-cache policy ${_name} \
+            | sed -rn '/Installed:\s[0-9]+/p' | xargs)
+        [[ -z ${_ver} ]] && echo ${_ori_txt} || \
+            echo ${_ori_txt} | awk '{printf $1 "'" (${_ver}) "'"; \
+            for (i=2; i<=NF; i++) {printf "%s ", $i}; printf "\n"}' \
+            | _format_output
+    done
+}
+
+dpkg_Si()
+{
+    _ary=(${@})
+    _len=${#_ary[@]}
+    if [[ ${_len} -eq 0 ]]; then return; fi
+    for _pkg in ${_ary[@]}
+    do
+        apt-cache show --no-all-versions ${_pkg} | sed -r \
+            '/^Maintainer|^Architecture|^Description-md5|^MD5sum|^SHA/d' \
+            | _format_output
+        if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
+    done
+}
+
+dpkg_Sii()
+{
+    _ary=(${@})
+    _len=${#_ary[@]}
+    if [[ ${_len} -eq 0 ]]; then return; fi
+    for _pkg in ${_ary[@]}
+    do
+        dpkg_Si ${_pkg}
+        _apt-cache_rdepends ${_pkg}
+        if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
+    done
+}
+
+dpkg_Sc()
+{
+    apt-get autoclean
+}
+
+dpkg_Scc()
+{
+    apt-get autoclean && apt-get clean
+}
+
+dpkg_R()
+{
+    apt-get remove "${@}"
+}
+
+dpkg_Rs()
+{
+    apt-get remove "${@}" && apt-get autoremove
+}
+
+dpkg_Rn()
+{
+    apt-get purge "${@}"
+}
+
+dpkg_Rns()
+{
+    apt-get purge "${@}" && apt-get autoremove && \
+        dpkg -P $(dpkg-query -l | awk '/^rc/ {print $2}')
+}
+
+
+_validate_operation() {
+  case "$1" in
+  "dpkg_Q") ;;
+  "dpkg_Qs") ;;
+  "dpkg_Qi") ;;
+  "dpkg_Ql") ;;
+  "dpkg_Qo") ;;
+  "dpkg_Qu") ;;
+  "dpkg_U") ;;
+  "dpkg_S") ;;
+  "dpkg_Sy") ;;
+  "dpkg_Su") ;;
+  "dpkg_Syu") ;;
+  "dpkg_Sw") ;;
+  "dpkg_Ss") ;;
+  "dpkg_Si") ;;
+  "dpkg_Sii") ;;
+  "dpkg_Sc") ;;
+  "dpkg_Scc") ;;
+  "dpkg_R") ;;
+  "dpkg_Rs") ;;
+  "dpkg_Rn") ;;
+  "dpkg_Rns") ;;
+  *) return 1 ;;
+  esac
+}
+
+
+
+
+set -u
+unset GREP_OPTIONS
+
+: "${PACAPT_DEBUG=}"  # Show what will be going
+: "${GREP:=grep}"     # Need to update in, e.g, _sun_tools_init
+: "${AWK:=awk}"       # Need to update in, e.g, _sun_tools_init
+
+
+export PACAPT_DEBUG GREP AWK
+
+_POPT="" # primary operation
+_SOPT="" # secondary operation
+_TOPT="" # options for operations
+_EOPT="" # extra options (directly given to package manager)
+         # these options will be translated by (_translate_all) method.
+_PACMAN="" # name of the package manager
+
+_PACMAN_detect \
+|| _die "'pacapt' doesn't support your package manager."
+
+if [[ -z "$PACAPT_DEBUG" ]]; then
+  [[ "$_PACMAN" != "pacman" ]] \
+  || exec "/usr/bin/pacman" "$@"
+elif [[ "$PACAPT_DEBUG" != "auto" ]]; then
+  _PACMAN="$PACAPT_DEBUG"
+fi
+
+while :; do
+  _args="${1-}"
+
+  [[ "${_args:0:1}" == "-" ]] || break
+
+  case "${_args}" in
+  "--help")
+    _help
+    exit 0
+    ;;
+
+  "--noconfirm")
+    shift
+    _EOPT="$_EOPT:noconfirm:"
+    continue
+    ;;
+
+  "-"|"--")
+    shift
+    break
+    ;;
+  esac
+
+  i=1
+  while [[ "$i" -lt "${#_args}" ]]; do
+    _opt="${_args:$i:1}"
+    (( i ++ ))
+
+    case "$_opt" in
+    h)
+      _help
+      exit 0
+      ;;
+    V)
+      _print_pacapt_version $PACAPT_VERSION;
+      exit 0
+      ;;
+    P)
+      _print_supported_operations $_PACMAN
+      exit 0
+      ;;
+
+    Q|S|R|U)
+      if [[ -n "$_POPT" && "$_POPT" != "$_opt" ]]; then
+        _error "Only one operation may be used at a time"
+        exit 1
+      fi
+      _POPT="$_opt"
+      ;;
+
+    # Comment 2015 May 26th: This part deals with the 2nd option.
+    # Most of the time, there is only one 2nd option. But some
+    # operation may need extra and/or duplicate (e.g, Sy <> Syy).
+    #
+    # See also
+    #
+    # * https://github.com/icy/pacapt/issues/13
+    #
+    #   This implementation works, but with a bug. #Rsn works
+    #   but #Rns is translated to #Rn (incorrectly.)
+    #   Thanks Huy-Ngo for this nice catch.
+    #
+    # FIXME: Please check pacman(8) to see if they are really 2nd operation
+    #
+    s|l|i|p|o|m|n)
+      if [[ "$_SOPT" == '' ]]; then
+        _SOPT="$_opt"
+        continue
+      fi
+
+      # Understand it:
+      # If there is already an option recorded, the incoming option
+      # will come and compare itself with known one.
+      # We have a table
+      #
+      #     known one vs. incoming ? | result
+      #                <             | one-new
+      #                =             | one-one
+      #                >             | new-one
+      #
+      # Let's say, after this step, the 3rd option comes (named X),
+      # and the current result is "a-b". We have a table
+      #
+      #    a(b) vs. X  | result
+      #         <      | aX (b dropped)
+      #         =      | aa (b dropped)
+      #         >      | Xa (b dropped)
+      #
+      # In any case, the first one matters.
+      #
+      if [[ "${_SOPT:0:1}" < "$_opt" ]]; then
+        _SOPT="${_SOPT:0:1}$_opt"
+      elif [[ "${_SOPT:0:1}" == "$_opt" ]]; then
+        _SOPT="$_opt$_opt"
+      else
+        _SOPT="$_opt${_SOPT:0:1}"
+      fi
+
+      ;;
+
+    q)
+      _TOPT="$_opt" ;; # Thanks to James Pearson
+
+    u)
+      if [[ "${_SOPT:0:1}" == "y" ]]; then
+        _SOPT="yu"
+      else
+        _SOPT="u"
+      fi
+      ;;
+
+    y)
+      if [[ "${_SOPT:0:1}" == "u" ]]; then
+        _SOPT="yu"
+      else
+        _SOPT="y"
+      fi
+      ;;
+
+    c)
+      if [[ "${_SOPT:0:2}" == "cc" ]]; then
+        _SOPT="ccc"
+      elif [[ "${_SOPT:0:1}" == "c" ]]; then
+        _SOPT="cc"
+      else
+        _SOPT="$_opt"
+      fi
+      ;;
+
+    w|v)
+      _EOPT="$_EOPT:$_opt:"
+      ;;
+
+    *)
+      # FIXME: If option is unknown, we will break the loop
+      # FIXME: and this option will be used by the native program.
+      # FIXME: break 2
+      _die "pacapt: Unknown option '$_opt'."
+      ;;
+    esac
+  done
+
+  shift
+
+  # If the primary option and the secondary are known
+  # we would break the argument detection, but for sure we will look
+  # forward to see there is anything interesting...
+  if [[ -n "$_POPT" && -n "$_SOPT" ]]; then
+    case "${1:-}" in
+    "-w"|"--noconfirm") ;;
+    *) break;;
+    esac
+
+  # Don't have anything from the **first** argument. Something wrong.
+  # FIXME: This means that user must enter at least primary action
+  # FIXME: or secondary action in the very first part...
+  elif [[ -z "${_POPT}${_SOPT}${_TOPT}" ]]; then
+    break
+  fi
+done
+
+[[ -n "$_POPT" ]] \
+|| _die "Usage: pacapt <options>   # -h for help, -P list supported functions"
+
+_validate_operation "${_PACMAN}_${_POPT}${_SOPT}" \
+|| {
+  _not_implemented
+  exit 1
+}
+
+_translate_all || exit
+
+# pacman man page (examples) says:
+#   "pacman -Syu gpm = Update package list, upgrade all packages,
+#    and then install gpm if it wasn't already installed."
+#
+# Instead, just disallow specific packages, as (ex-)yum users likely
+# expect to just update/upgrade one package (and its dependencies)
+# and apt-get and pacman have no way to do this.
+#
+if [[ -n "$@" ]]; then
+  case "${_POPT}${_SOPT}" in
+  "Sy"|"Su"|"Syu")
+    echo 1>&2 "WARNING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo 1>&2 "  The -Sy/u options refresh and/or upgrade all packages."
+    echo 1>&2 "  To install packages as well, use separate commands:"
+    echo 1>&2
+    echo 1>&2 "    $0 -S$_SOPT; $0 -S ${*}"
+    echo 1>&2 "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  esac
+fi
+
+if [[ -n "$PACAPT_DEBUG" ]]; then
+  echo "pacapt: $_PACMAN, p=$_POPT, s=$_SOPT, t=$_TOPT, e=$_EOPT"
+  echo "pacapt: execute '${_PACMAN}_${_POPT}${_SOPT} $_EOPT ${*}'"
+  declare -f "${_PACMAN}_${_POPT}${_SOPT}"
+else
+  "_${_PACMAN}_init"
+  "${_PACMAN}_${_POPT}${_SOPT}" $_EOPT "$@"
+fi
