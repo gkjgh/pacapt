@@ -1,5 +1,5 @@
 ## eapt for easy apt
-Tools for people who prefer to use command line and familiar with pacman.<br/>
+Tools for people who prefer to or has to use command line and familiar with pacman.<br/>
 Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
 ## File Description and Position Suggests
@@ -7,7 +7,8 @@ pacman: Arch Linux package managerment tool.<br/>
 dir: /bin/
 
 _pacman: pacman for zsh completion<br/>
-dir: /usr/share/zsh/functions/Completion/Debian/ (Debian8) or /usr/share/zsh/site_functions/ (Arch)
+dir (Deb): /usr/share/zsh/functions/Completion/Debian/<br/>
+dir (Arch): /usr/share/zsh/site_functions/
 
 MIP: manually installed packages. Depends on deborphan.<br/>
 dir: ~/bin/
@@ -16,4 +17,11 @@ base-packages: customize base packages.<br/>
 dir: must be the same as MIP.
 
 ## about MIP
-This is a tool for find out top packages and check out dependcies. "top" means the package is not required by any other packages. It should be manually installed, otherswise should be automaticly installed. So after correct the "Installed Reason", administrator can purge the whole tree with "pacman -Rns" without any leaves (trash) packages.
+This is a tool for finding out top packages and checking out dependcies. "top" means the package is not required by any other packages. Top and base packages should be manually installed, otherswise should be automaticly installed. So after correct the "Installed Reason", which can be seen with "pacman -Qi", administrator can purge the whole tree with "pacman -Rns" without any leaves (trash) packages.
+
+Parameter ex for showing automaticly installed recommends packages and base packages.<br/>
+Example:<br/>
+\# ~/bin/MIP ex > mip<br/>
+\# vim mip<br/>
+\# sudo apt-mark auto ${pkgs_should_be_auto_in_mip_file}<br/>
+\# sudo pacman -Rns ${top_pkg_you_want_to_purge_recursively}
