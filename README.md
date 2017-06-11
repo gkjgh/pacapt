@@ -23,5 +23,5 @@ Parameter ex for showing automaticly installed recommends packages and base pack
 Example:<br/>
 \# ~/bin/MIP ex > mip<br/>
 \# vim mip<br/>
-\# sudo apt-mark auto ${pkgs_should_be_auto_in_mip_file}<br/>
+\# sudo apt-mark auto ${pkgs_should_be_auto_showing_in_mip_file}<br/>
 \# sudo pacman -Rns ${top_pkg_you_want_to_purge_recursively}
