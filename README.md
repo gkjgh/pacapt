@@ -3,7 +3,7 @@ Tools for people who prefer to or has to use command line and familiar with pacm
 Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
 ## File Description and Position Suggests
-pacman: Arch Linux package managerment tool.<br/>
+pacman: Arch Linux package manager.<br/>
 dir: /bin/
 
 _pacman: pacman for zsh completion<br/>
