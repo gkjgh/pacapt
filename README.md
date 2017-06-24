@@ -1,4 +1,4 @@
-## eapt for easy apt
+## sapt for Simple APT
 Tools for people who prefer to or has to use command line and familiar with pacman.<br/>
 Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
@@ -7,8 +7,7 @@ pacman: Arch Linux package managerment tool.<br/>
 dir: /bin/
 
 _pacman: pacman for zsh completion<br/>
-dir (Deb): /usr/share/zsh/functions/Completion/Debian/<br/>
-dir (Arch): /usr/share/zsh/site_functions/
+dir: /usr/share/zsh/functions/Completion/Debian/
 
 MIP: manually installed packages. Depends on deborphan.<br/>
 dir: ~/bin/
