@@ -395,7 +395,7 @@ dpkg_Qi()
         _mark=$([[ $(apt-mark showauto ${_pkg}) == ${_pkg} ]] \
             && echo auto || echo manual)
         dpkg-query -s ${_pkg} | sed '/^Installed/a\Installed-Reason: '${_mark} \
-            | sed -r '/^Maintainer|^Architecture/d' | _format_output
+            | sed -r '/^Maintainer|^Architecture|^Multi-Arch/d' | _format_output
         _apt-cache_rdepends "--installed ${_pkg}"
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
@@ -477,7 +477,7 @@ dpkg_Si()
     for _pkg in ${_ary[@]}
     do
         apt-cache show --no-all-versions ${_pkg} | sed -r \
-            '/^Maintainer|^Architecture|^Description-md5|^MD5sum|^SHA/d' \
+            '/^Maintainer|^Architecture|^Description-md5|^MD5sum|^SHA|::/d' \
             | _format_output
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
