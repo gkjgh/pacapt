@@ -1,19 +1,19 @@
 ## sapt for Simple APT
-Tools for people who prefer to or has to use command line and familiar with pacman.<br/>
+Tools for people who prefer to or has to use command line for maintaining system and familiar with pacman.<br/>
 Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
 ## File Description and Position Suggests
 pacman: Arch Linux package manager.<br/>
-dir: /bin/
+dir: /usr/local/bin/
 
 _pacman: pacman for zsh completion<br/>
-dir: /usr/share/zsh/functions/Completion/Debian/
+dir: /usr/local/share/zsh/site-functions/
 
 MIP: manually installed packages. Depends on deborphan.<br/>
 dir: ~/bin/
 
 base-packages: customize base packages.<br/>
-dir: must be the same as MIP.
+dir: ~/bin/
 
 ## about MIP
 This is a tool for finding out top packages and checking out dependcies. "top" means the package is not required by any other packages. Top and base packages should be manually installed, otherswise should be automaticly installed. So after correct the "Installed Reason", which can be seen with "pacman -Qi", administrator can purge the whole tree with "pacman -Rns" without any leaves (trash) packages.
