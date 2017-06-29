@@ -61,9 +61,6 @@ recommends = Reverse (Pre-)Depends,Suggests -> none\n\
 comm -23 ${manu_EB} ${TRS_EB} > ${req_by}
 sed -i '1i\\n------ required by others (should configure to automatic) ------' ${req_by}
 
-comm -23 ${tops_EB} ${manu_EB} > ${tops_auto}
-sed -i '1i\\n------ tops automaticly (should configure to manual) ------' ${tops_auto}
-
 comm -23 ${TR_EB} ${tops_EB} > ${recom_EB}
 comm -12 ${recom_EB} ${manu_EB} > ${rec_manu}
 sed -i '1i\\n------ recommends manually (consider configure to automatic) ------' ${rec_manu}
@@ -75,6 +72,9 @@ sed -i '1i\\n------ suggests manually (consider configure to automatic) ------' 
 comm -23 ${suggest_EB} ${manu_EB} > ${sug_auto}
 sed -i '1i\\n------ suggests automaticly (consider purge with pacman -Rns) ------' ${sug_auto}
 
+comm -23 ${tops_EB} ${manu_EB} > ${tops_auto}
+sed -i '1i\\n------ tops automaticly (should configure to manual or purge) ------' ${tops_auto}
+
 comm -12 ${tops_EB} ${manu_EB} > ${tops_manu}
 sed -i '1i\\n------ tops manually ------' ${tops_manu}
 
@@ -85,8 +85,8 @@ comm -12 ${deb_base} ${manu_packages} > ${manu_base}
 sed -i '1i\\n------ base manually ------' ${manu_base}
 
 if [[ ${1} == "ex" ]]; then
-    cat ${this_manu} ${req_by} ${tops_auto} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_manu} \
+    cat ${this_manu} ${req_by} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_auto} ${tops_manu} \
         ${rec_auto} ${manu_base}
 else
-    cat ${this_manu} ${req_by} ${tops_auto} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_manu}
+    cat ${this_manu} ${req_by} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_auto} ${tops_manu}
 fi
