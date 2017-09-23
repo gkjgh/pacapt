@@ -1,8 +1,11 @@
 #!/bin/bash
 
-# tops = results of reverse (Pre-)Depends,Recommends,Suggests are none
-# TR = tops with reverse Recommends
-# TS = tops with reverse Suggests
+# tops = packages that have none of reverse Depends and Recommends and Suggests
+# rRec = packages that have reverse Recommends
+# rSug = packages that have reverse Suggests
+# RoaS = packages that have reverse Recommends or | and Suggests
+# rRoS = packages that have reverse Recommends or Suggests
+# rRaS = packages that have reverse Recommends and Suggests
 # EB = exclude base
 tmp=${TMPDIR-/tmp}/manually-installed-packages-${UID}-$$
 deb_base=${tmp}/deb_base
@@ -11,25 +14,30 @@ manu_packages=${tmp}/manu_packages
 manu_EB=${tmp}/manu_EB
 tops_packages=${tmp}/tops_packages
 tops_EB=${tmp}/tops_EB
-tops_with_RS=${tmp}/tops_with_RS
-TRS_EB=${tmp}/TRS_EB
-tops_with_rec=${tmp}/tops_with_rec
-TR_EB=${tmp}/TR_EB
-tops_with_sug=${tmp}/tops_with_sug
-TS_EB=${tmp}/TS_EB
+RoaS_plus_tops=${tmp}/RoaS_plus_tops
+RoaS_tops_EB=${tmp}/RoaS_tops_EB
+rRec_plus_tops=${tmp}/rRec_plus_tops
+rRec_tops_EB=${tmp}/rRec_tops_EB
+rSug_plus_tops=${tmp}/rSug_plus_tops
+rSug_tops_EB=${tmp}/rSug_tops_EB
 
-recom_EB=${tmp}/recom_EB
-suggest_EB=${tmp}/suggest_EB
+RoaS_EB=${tmp}/RoaS_EB
+rRec_EB=${tmp}/rRec_EB
+rSug_EB=${tmp}/rSug_EB
+rRoS_EB=${tmp}/rRoS_EB
+rRaS_EB=${tmp}/rRaS_EB
 
 this_manu=${tmp}/this_manu
-req_by=${tmp}/req_by
-tops_auto=${tmp}/tops_auto
-rec_manu=${tmp}/rec_manu
-sug_manu=${tmp}/sug_manu
+dep_manu=${tmp}/dep_manu
 rec_auto=${tmp}/rec_auto
+rec_manu=${tmp}/rec_manu
+ras_auto=${tmp}/ras_auto
+ras_manu=${tmp}/ras_manu
 sug_auto=${tmp}/sug_auto
+sug_manu=${tmp}/sug_manu
+tops_auto=${tmp}/tops_auto
 tops_manu=${tmp}/tops_manu
-manu_base=${tmp}/manu_base
+base_manu=${tmp}/base_manu
 
 mkdir ${tmp}
 trap 'rm -rf ${tmp}' EXIT
@@ -42,51 +50,64 @@ comm -23 ${manu_packages} ${deb_base} | sort > ${manu_EB}
 deborphan                     -ap1 | awk '{print $2}' | sort > ${tops_packages} 
 comm -23 ${tops_packages} ${deb_base} > ${tops_EB}
 
-deborphan                    -nap1 | awk '{print $2}' | sort > ${tops_with_RS} 
-comm -23 ${tops_with_RS} ${deb_base} > ${TRS_EB}
+deborphan                    -nap1 | awk '{print $2}' | sort > ${RoaS_plus_tops} 
+comm -23 ${RoaS_plus_tops} ${deb_base} > ${RoaS_tops_EB}
 
-deborphan --ignore-recommends -ap1 | awk '{print $2}' | sort > ${tops_with_rec}
-comm -23 ${tops_with_rec} ${deb_base} > ${TR_EB}
+deborphan --ignore-recommends -ap1 | awk '{print $2}' | sort > ${rRec_plus_tops}
+comm -23 ${rRec_plus_tops} ${deb_base} > ${rRec_tops_EB}
 
-deborphan --ignore-suggests   -ap1 | awk '{print $2}' | sort > ${tops_with_sug}
-comm -23 ${tops_with_sug} ${deb_base} > ${TS_EB}
+deborphan --ignore-suggests   -ap1 | awk '{print $2}' | sort > ${rSug_plus_tops}
+comm -23 ${rSug_plus_tops} ${deb_base} > ${rSug_tops_EB}
+
+comm -23 ${RoaS_tops_EB} ${tops_EB} > ${RoaS_EB}
+comm -23 ${rRec_tops_EB} ${tops_EB} > ${rRec_EB}
+comm -23 ${rSug_tops_EB} ${tops_EB} > ${rSug_EB}
+cat ${rRec_EB} ${rSug_EB} | sort > ${rRoS_EB}
+comm -23 ${RoaS_EB} ${rRoS_EB} > ${rRaS_EB}
 
 
 echo -e "\
-recommends = Reverse (Pre-)Depends,Suggests -> none\n\
-  suggests = Reverse (Pre-)Depends,Recommends -> none\n\
-      tops = Reverse (Pre-)Depends,Recommends,Suggests -> none\
+   rDepends = packages are depended by others\n\
+rRecommends = packages are recommended by others\n\
+  rSuggests = packages are suggested by others\n\
+        RaS = packages are recommended and suggested by others\n\
+       tops = packages are not required by others\
 " > ${this_manu}
 
-comm -23 ${manu_EB} ${TRS_EB} > ${req_by}
-sed -i '1i\\n------ required by others (should configure to automatic) ------' ${req_by}
+comm -23 ${manu_EB} ${RoaS_tops_EB} > ${dep_manu}
+sed -i '1i\\n------ rDepends manually (configure to automatic) ------' ${dep_manu}
 
-comm -23 ${TR_EB} ${tops_EB} > ${recom_EB}
-comm -12 ${recom_EB} ${manu_EB} > ${rec_manu}
-sed -i '1i\\n------ recommends manually (consider configure to automatic) ------' ${rec_manu}
+comm -23 ${rSug_EB} ${manu_EB} > ${sug_auto}
+sed -i '1i\\n------ rSuggests automaticly (purge with pacman -Rns) ------' ${sug_auto}
 
-comm -23 ${TS_EB} ${tops_EB} > ${suggest_EB}
-comm -12 ${suggest_EB} ${manu_EB} > ${sug_manu}
-sed -i '1i\\n------ suggests manually (consider configure to automatic) ------' ${sug_manu}
+comm -12 ${rSug_EB} ${manu_EB} > ${sug_manu}
+sed -i '1i---' ${sug_manu}
 
-comm -23 ${suggest_EB} ${manu_EB} > ${sug_auto}
-sed -i '1i\\n------ suggests automaticly (consider purge with pacman -Rns) ------' ${sug_auto}
+comm -23 ${rRaS_EB} ${manu_EB} > ${ras_auto}
+sed -i '1i---' ${ras_auto}
+
+comm -12 ${rRaS_EB} ${manu_EB} > ${ras_manu}
+sed -i '1i---' ${ras_manu}
+
+comm -23 ${rRec_EB} ${manu_EB} > ${rec_auto}
+sed -i '1i\\n------ rRecommends and RaS automaticly ------' ${rec_auto}
+
+comm -12 ${rRec_EB} ${manu_EB} > ${rec_manu}
+sed -i '1i\\n------ rRecommends and RaS manually ------' ${rec_manu}
 
 comm -23 ${tops_EB} ${manu_EB} > ${tops_auto}
-sed -i '1i\\n------ tops automaticly (should configure to manual or purge) ------' ${tops_auto}
+sed -i '1i\\n------ tops automaticly (configure to manual or purge) ------' ${tops_auto}
 
 comm -12 ${tops_EB} ${manu_EB} > ${tops_manu}
-sed -i '1i\\n------ tops manually ------' ${tops_manu}
+sed -i '1i\\n------ tops and rSuggest manually ------' ${tops_manu}
 
-comm -23 ${recom_EB} ${manu_EB} > ${rec_auto}
-sed -i '1i\\n------ recommends automaticly ------' ${rec_auto}
+comm -12 ${deb_base} ${manu_packages} > ${base_manu}
+sed -i '1i\\n------ base manually ------' ${base_manu}
 
-comm -12 ${deb_base} ${manu_packages} > ${manu_base}
-sed -i '1i\\n------ base manually ------' ${manu_base}
-
-if [[ ${1} == "ex" ]]; then
-    cat ${this_manu} ${req_by} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_auto} ${tops_manu} \
-        ${rec_auto} ${manu_base}
+if [[ ${1} == "-b" ]]; then
+    cat ${this_manu} ${dep_manu} ${sug_auto} ${rec_auto} ${ras_auto} ${rec_manu} \
+        ${ras_manu} ${tops_auto} ${tops_manu} ${sug_manu} ${base_manu}
 else
-    cat ${this_manu} ${req_by} ${rec_manu} ${sug_manu} ${sug_auto} ${tops_auto} ${tops_manu}
+    cat ${this_manu} ${dep_manu} ${sug_auto} ${rec_auto} ${ras_auto} ${rec_manu} \
+        ${ras_manu} ${tops_auto} ${tops_manu} ${sug_manu}
 fi
