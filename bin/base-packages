@@ -4,6 +4,7 @@ apt-transport-https
 base-files
 bash
 bzip2
+console-setup
 coreutils
 cryptsetup
 debianutils
@@ -11,6 +12,7 @@ deborphan
 diffutils
 dpkg
 e2fsprogs
+eject
 file
 findutils
 gawk
@@ -22,6 +24,7 @@ grub-pc
 gzip
 hostname
 htop
+ifupdown
 init
 iproute2
 iptables
@@ -49,9 +52,10 @@ rsyslog
 sed
 sudo
 sysfsutils
+sysvinit-utils
 tar
 usbutils
 util-linux
-vim-athena
+vim-gtk3
 xfsprogs
 zsh
