@@ -195,8 +195,6 @@ _issue2pacman() {
 }
 
 _PACMAN_detect() {
-  _PACMAN_found_from_script_name && return
-
   _issue2pacman sun_tools "SunOS" && return
   _issue2pacman pacman "Arch Linux" && return
   _issue2pacman dpkg "Debian GNU/Linux" && return
@@ -363,8 +361,6 @@ _print_supported_operations() {
 
 
 
-
-
 _format_output()
 {
     # auto option is invalid
@@ -382,38 +378,39 @@ _apt-cache_rdepends__deborphan()
 {
     apt-cache rdepends --installed --no-recommends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed -e "1s/${@}/Apt-cache\ Reverse\ Depends:/" \
-        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '1i\Apt-cache Reverse Depends:' \
+        -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 
     _depends=$(deborphan -nap1 --no-show-section -d ${@} \
-        | sed -e "1s/${@}/Deborphan\ Reverse\ Depends:/" -e 's/^\ *//' | sort -u)
+        | sed -e '1i\Deborphan Reverse Depends:' -e '1d' -e 's/^\ *//' | sort -u)
     sed -e '2,$s/$/,/' -e '$s/,//' <<< "${_depends}" | xargs | _format_output
 
     apt-cache rdepends --installed --no-pre-depends --no-depends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed -e "1s/${@}/Apt-cache\ Reverse\ Recommends:/" \
-        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '1i\Apt-cache Reverse Recommends:' \
+        -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 
     _RaD=$(deborphan --ignore-suggests -ap1 --no-show-section -d ${@} \
-        | sed -e "1s/${@}/Deborphan\ Reverse\ Recommends:/" -e 's/^\ *//' | sort -u)
+        | sed -e '1i\Deborphan Reverse Recommends:' -e '1d' -e 's/^\ *//' | sort -u)
     comm -23 <(echo "${_RaD}") <(echo "${_depends}") \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 
     apt-cache rdepends --installed --no-pre-depends --no-depends --no-recommends \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed -e "1s/${@}/Apt-cache\ Reverse\ Suggests:/" \
-        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '1i\Apt-cache Reverse Suggests:' \
+        -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 
     _SaD=$(deborphan --ignore-recommends -ap1 --no-show-section -d ${@} \
-        | sed -e "1s/${@}/Deborphan\ Severse\ Suggests:/" -e 's/^\ *//' | sort -u)
+        | sed -e '1i\Deborphan Severse Suggests:' -e '1d' -e 's/^\ *//' | sort -u)
     comm -23 <(echo "${_SaD}") <(echo "${_depends}") \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 }
 
 _dpkg_init() {
+  export LC_ALL=C
   export GREP_COLOR='1;37'
 }
 
