@@ -1,25 +1,29 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
+#
 # Purpose: A wrapper for all Unix package managers
 # License: Fair license (http://www.opensource.org/licenses/fair)
 # Source : http://github.com/icy/pacapt/
-# Version: 2.3.13
+# Version: 2.4.2
 # Authors: Anh K. Huynh et al.
 
-# Copyright (C) 2010 - 2016 \
+# Copyright (C) 2010 - 2019 \
 #                           | 10sr (10sr)
 #                           | Alexander Dupuy (dupuy)
 #                           | Anh K. Huynh (icy)
+#                           | Antony Lee (anntzer)
 #                           | Alex Lyon (Arcterus)
 #                           | Carl X. Su (bcbcarl)
 #                           | Cuong Manh Le (Gnouc)
 #                           | Daniel YC Lin (dlintw)
 #                           | Danny George (dangets)
 #                           | Darshit Shah (darnir)
+#                           | Dmitry Kudriavtsev (dkudriavtsev)
 #                           | Eric Crosson (EricCrosson)
+#                           | Evan Relf (evanrelf)
 #                           | GijsTimmers (GijsTimmers)
 #                           | Hà-Dương Nguyễn (cmpitg)
 #                           | Huy Ngô (NgoHuy)
+#                           | Kevin Goldman (gkjgh)
 #                           | James Pearson (xiongchiamiov)
 #                           | Janne Heß (dasJ)
 #                           | Jiawei Zhou (4679)
@@ -27,8 +31,9 @@
 #                           | Kevin Brubeck (unhammer)
 #                           | Konrad Borowski (xfix)
 #                           | Kylie McClain (somasis)
-#                           | Pival81
+#                           | Valerio Pizzi (Pival81)
 #                           | Siôn Le Roux (sinisterstuf)
+#                           | Thiago Perrotta (thiagowfx)
 #                           | Vojtech Letal (letalvoj)
 #
 # Usage of the works is permitted provided that this instrument is
@@ -38,28 +43,70 @@
 # DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 #
 
-export PACAPT_VERSION='2.3.13'
+_print_pacapt_version() {
+  cat <<_EOF_
+pacapt version '2.4.2'
+
+Copyright (C) 2010 - 2019 \\
+                          | 10sr (10sr)
+                          | Alexander Dupuy (dupuy)
+                          | Anh K. Huynh (icy)
+                          | Antony Lee (anntzer)
+                          | Alex Lyon (Arcterus)
+                          | Carl X. Su (bcbcarl)
+                          | Cuong Manh Le (Gnouc)
+                          | Daniel YC Lin (dlintw)
+                          | Danny George (dangets)
+                          | Darshit Shah (darnir)
+                          | Dmitry Kudriavtsev (dkudriavtsev)
+                          | Eric Crosson (EricCrosson)
+                          | Evan Relf (evanrelf)
+                          | GijsTimmers (GijsTimmers)
+                          | Hà-Dương Nguyễn (cmpitg)
+                          | Huy Ngô (NgoHuy)
+                          | James Pearson (xiongchiamiov)
+                          | Janne Heß (dasJ)
+                          | Jiawei Zhou (4679)
+                          | Karol Blazewicz
+                          | Kevin Brubeck (unhammer)
+                          | Konrad Borowski (xfix)
+                          | Kylie McClain (somasis)
+                          | Valerio Pizzi (Pival81)
+                          | Siôn Le Roux (sinisterstuf)
+                          | Thiago Perrotta (thiagowfx)
+                          | Vojtech Letal (letalvoj)
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any
+entity that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+_EOF_
+}
+
+export PACAPT_VERSION='2.4.2'
 
 _help() {
   cat <<'EOF'
 NAME
-  pacapt - An Arch's pacman-like package manager for some Unices.
-  More details can be found at https://github.com/icy/pacapt .
+  pacapt - An `ArchLinux`'s pacman-like wrapper for many package managers.
 
 SYNTAX
 
   $ pacapt <option(s)> <operation(s)> <package(s)>
 
-OPERATIONS
+BASIC OPTIONS
 
-  Basic
     -h or --help    print this help message
     -P              print supported operations
     -V              print version information
 
+PACMAN STYLE OPERATIONS
+
   Query
     -Q              list all installed packages
     -Qc <package>   show package's changelog
+    -Qe [<package>] only list explicitly installed packages
     -Qi <package>   print package status
     -Ql <package>   list package's files
     -Qm             list installed packages that aren't available
@@ -70,6 +117,8 @@ OPERATIONS
 
   Synchronize
     -S <package>    install package(s)
+    -Sg             list groups
+    -Sg <group>     list packages in group
     -Ss <package>   search for packages
     -Su             upgrade the system
     -Sy             update package database
@@ -82,33 +131,14 @@ OPERATIONS
     -Sccc           clean variant files.
                     (debian) See also http://dragula.viettug.org/blogs/646
 
+  Upgrade
+    -U              upgrade or add package from local file path (or remote uri)
+
 OPTIONS
 
     -w              download packages but don't install them
     --noconfirm     don't wait for user's confirmation
 
-EXAMPLES
-
-  1. To install a package from Debian's backports repository
-      $ pacapt -S foobar -t lenny-backports
-      $ pacapt -S -- -t lenny-backports foobar
-
-  2. To update package database and then update your system
-      $ pacapt -Syu
-
-  3. To download a package without installing it
-      $ pacapt -Sw foobar
-
-NOTES
-
-  When being executed on Arch-based system, the tool simply invokes
-  the system package manager (`/usr/bin/pacman`.)
-
-  Though you can specify option by its own word, for example,
-      $ pacapt -S -y -u
-
-  it's always the best to combine them
-      $ pacapt -Syu
 EOF
 
 }
@@ -121,12 +151,18 @@ _error() {
   return 1
 }
 
+_warn() {
+  echo >&2 "Warning: $*"
+  return 0
+}
+
 _die() {
   echo >&2 "$@"
   exit 1
 }
 
 _not_implemented() {
+  # shellcheck disable=2153
   echo >&2 "${_PACMAN}: '${_POPT}:${_SOPT}:${_TOPT}' operation is invalid or not implemented."
   return 1
 }
@@ -136,8 +172,6 @@ _removing_is_dangerous() {
   return 1
 }
 
-# Detect package type from /etc/issue
-# FIXME: Using new `issue` file (location)
 _issue2pacman() {
   local _pacman
 
@@ -160,8 +194,9 @@ _issue2pacman() {
   && _PACMAN="$_pacman" && return
 }
 
-# Detect package type
 _PACMAN_detect() {
+  _PACMAN_found_from_script_name && return
+
   _issue2pacman sun_tools "SunOS" && return
   _issue2pacman pacman "Arch Linux" && return
   _issue2pacman dpkg "Debian GNU/Linux" && return
@@ -193,7 +228,7 @@ _PACMAN_detect() {
 
   # Prevent a loop when this script is installed on non-standard system
   if [[ -x "/usr/bin/pacman" ]]; then
-    $GREP -q "$FUNCNAME" '/usr/bin/pacman' >/dev/null 2>&1
+    $GREP -q "${FUNCNAME[0]}" '/usr/bin/pacman' >/dev/null 2>&1
     [[ $? -ge 1 ]] && _PACMAN="pacman" \
     && return
   fi
@@ -212,14 +247,13 @@ _PACMAN_detect() {
   [[ -x "/usr/sbin/pkgadd" ]] && _PACMAN="sun_tools" && return
   [[ -x "/sbin/apk" ]] && _PACMAN="apk" && return
   [[ -x "/usr/bin/tazpkg" ]] && _PACMAN="tazpkg" && return
+  [[ -x "/usr/bin/swupd" ]] && _PACMAN="swupd" && return
 
   command -v brew >/dev/null && _PACMAN="homebrew" && return
 
   return 1
 }
 
-# Translate -w option. Please note this is only valid when installing
-# a package from remote, aka. when '-S' operation is performed.
 _translate_w() {
 
   echo "$_EOPT" | $GREP -q ":w:" || return 0
@@ -270,8 +304,6 @@ _translate_debug() {
   echo "-v"
 }
 
-# Translate the --noconfirm option.
-# FIXME: does "yes | pacapt" just help?
 _translate_noconfirm() {
 
   echo "$_EOPT" | $GREP -q ":noconfirm:" || return 0
@@ -303,9 +335,11 @@ _translate_noconfirm() {
 
 _translate_all() {
   local _args=""
-  local _debug="$(_translate_debug)"
-  local _noconfirm="$(_translate_noconfirm)"
+  local _debug=
+  local _noconfirm=
 
+  _debug="$(_translate_debug)"
+  _noconfirm="$(_translate_noconfirm)"
   _args="$(_translate_w)" || return 1
   _args="${_args}${_noconfirm:+ }${_noconfirm}" || return 1
   _args="${_args}${_debug:+ }${_debug}" || return 1
@@ -315,29 +349,18 @@ _translate_all() {
 
 _print_supported_operations() {
   local _pacman="$1"
-  echo -n "pacapt: available operations:"
-  $GREP -E "^${_pacman}_[^ \t]+\(\)" "$0" \
+  echo -n "pacapt($_pacman): available operations:"
+  # shellcheck disable=2016
+  $GREP -E "^${_pacman}_[^ \\t]+\\(\\)" "$0" \
   | $AWK -F '(' '{print $1}' \
   | sed -e "s/${_pacman}_//g" \
-  | while read O; do
+  | while read -r O; do
       echo -n " $O"
     done
   echo
 }
 
-_print_pacapt_version() {
-  cat <<EOF
-pacapt version '${1:-unknown}'
 
-Copyright (C) 2010 - $(date +%Y) Anh K. Huynh et al.
-
-Usage of the works is permitted provided that this
-instrument is retained with the works, so that any
-entity that uses the works is notified of this instrument.
-
-DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
-EOF
-}
 
 
 
@@ -355,20 +378,39 @@ _format_output()
 #    egrep --color=auto '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
 }
 
-_apt-cache_rdepends()
+_apt-cache_rdepends__deborphan()
 {
-    apt-cache rdepends --no-recommends --no-suggests \
+    apt-cache rdepends --installed --no-recommends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed '2s/ / (Pre-)/' | sed '1d' | sed '2,$s/$/,/' \
-        | sed '$s/,//' | xargs | _format_output
-    apt-cache rdepends --no-pre-depends --no-depends --no-suggests \
+        | sed -e "1s/${@}/Apt-cache\ Reverse\ Depends:/" \
+        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+
+    _depends=$(deborphan -nap1 --no-show-section -d ${@} \
+        | sed -e "1s/${@}/Deborphan\ Reverse\ Depends:/" -e 's/^\ *//' | sort -u)
+    sed -e '2,$s/$/,/' -e '$s/,//' <<< "${_depends}" | xargs | _format_output
+
+    apt-cache rdepends --installed --no-pre-depends --no-depends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed '2s/Depends/Recommends/' | sed '1d' | sed '2,$s/$/,/' \
-        | sed '$s/,//' | xargs | _format_output
-    apt-cache rdepends --no-pre-depends --no-depends --no-recommends \
+        | sed -e "1s/${@}/Apt-cache\ Reverse\ Recommends:/" \
+        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+
+    _RaD=$(deborphan --ignore-suggests -ap1 --no-show-section -d ${@} \
+        | sed -e "1s/${@}/Deborphan\ Reverse\ Recommends:/" -e 's/^\ *//' | sort -u)
+    comm -23 <(echo "${_RaD}") <(echo "${_depends}") \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+
+    apt-cache rdepends --installed --no-pre-depends --no-depends --no-recommends \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
-        | sed '2s/Depends/Suggests/' | sed '1d' | sed '2,$s/$/,/' \
-        | sed '$s/,//' | xargs | _format_output
+        | sed -e "1s/${@}/Apt-cache\ Reverse\ Suggests:/" \
+        -e '2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+
+    _SaD=$(deborphan --ignore-recommends -ap1 --no-show-section -d ${@} \
+        | sed -e "1s/${@}/Deborphan\ Severse\ Suggests:/" -e 's/^\ *//' | sort -u)
+    comm -23 <(echo "${_SaD}") <(echo "${_depends}") \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 }
 
 _dpkg_init() {
@@ -396,7 +438,7 @@ dpkg_Qi()
             && echo auto || echo manual)
         dpkg-query -s ${_pkg} | sed '/^Installed/a\Installed-Reason: '${_mark} \
             | sed -r '/^Maintainer|^Architecture|^Multi-Arch/d' | _format_output
-        _apt-cache_rdepends "--installed ${_pkg}"
+        _apt-cache_rdepends__deborphan "${_pkg}"
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
 }
@@ -557,7 +599,6 @@ _validate_operation() {
 
 
 
-
 set -u
 unset GREP_OPTIONS
 
@@ -568,12 +609,12 @@ unset GREP_OPTIONS
 
 export PACAPT_DEBUG GREP AWK
 
-_POPT="" # primary operation
-_SOPT="" # secondary operation
-_TOPT="" # options for operations
-_EOPT="" # extra options (directly given to package manager)
-         # these options will be translated by (_translate_all) method.
-_PACMAN="" # name of the package manager
+_POPT=""    # primary operation
+_SOPT=""    # secondary operation
+_TOPT=""    # options for operations
+_EOPT=""    # extra options (directly given to package manager)
+            # these options will be translated by (_translate_all) method.
+_PACMAN=""  # name of the package manager
 
 _PACMAN_detect \
 || _die "'pacapt' doesn't support your package manager."
@@ -619,11 +660,11 @@ while :; do
       exit 0
       ;;
     V)
-      _print_pacapt_version $PACAPT_VERSION;
+      _print_pacapt_version;
       exit 0
       ;;
     P)
-      _print_supported_operations $_PACMAN
+      _print_supported_operations "$_PACMAN"
       exit 0
       ;;
 
@@ -649,7 +690,7 @@ while :; do
     #
     # FIXME: Please check pacman(8) to see if they are really 2nd operation
     #
-    s|l|i|p|o|m|n)
+    e|g|i|l|m|n|o|p|s)
       if [[ "$_SOPT" == '' ]]; then
         _SOPT="$_opt"
         continue
@@ -757,15 +798,7 @@ _validate_operation "${_PACMAN}_${_POPT}${_SOPT}" \
 
 _translate_all || exit
 
-# pacman man page (examples) says:
-#   "pacman -Syu gpm = Update package list, upgrade all packages,
-#    and then install gpm if it wasn't already installed."
-#
-# Instead, just disallow specific packages, as (ex-)yum users likely
-# expect to just update/upgrade one package (and its dependencies)
-# and apt-get and pacman have no way to do this.
-#
-if [[ -n "$@" ]]; then
+if [[ -n "$*" ]]; then
   case "${_POPT}${_SOPT}" in
   "Sy"|"Su"|"Syu")
     echo 1>&2 "WARNING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -782,6 +815,6 @@ if [[ -n "$PACAPT_DEBUG" ]]; then
   echo "pacapt: execute '${_PACMAN}_${_POPT}${_SOPT} $_EOPT ${*}'"
   declare -f "${_PACMAN}_${_POPT}${_SOPT}"
 else
-  "_${_PACMAN}_init"
+  "_${_PACMAN}_init" || exit
   "${_PACMAN}_${_POPT}${_SOPT}" $_EOPT "$@"
 fi
