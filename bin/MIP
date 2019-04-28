@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 
 # tops = packages that have none of reverse Depends and Recommends and Suggests
 # rRec = packages that have reverse Recommends
@@ -7,8 +7,10 @@
 # rRoS = packages that have reverse Recommends or Suggests
 # rRaS = packages that have reverse Recommends and Suggests
 # EB = exclude base
+
 tmp=${TMPDIR-/tmp}/manually-installed-packages-${UID}-$$
 deb_base=${tmp}/deb_base
+arc=$(dpkg --print-architecture)
 
 manu_packages=${tmp}/manu_packages
 manu_EB=${tmp}/manu_EB
@@ -37,6 +39,7 @@ sug_auto=${tmp}/sug_auto
 sug_manu=${tmp}/sug_manu
 tops_auto=${tmp}/tops_auto
 tops_manu=${tmp}/tops_manu
+base_auto=${tmp}/base_auto
 base_manu=${tmp}/base_manu
 
 mkdir ${tmp}
@@ -47,16 +50,20 @@ cat ~/bin/base-packages | sort > ${deb_base}
 apt-mark showmanual | sort > ${manu_packages}
 comm -23 ${manu_packages} ${deb_base} | sort > ${manu_EB}
 
-deborphan                     -ap1 | awk '{print $2}' | sort > ${tops_packages} 
+deborphan                     -ap1 --no-show-section | \
+    sed "s/\(\:all\|\:${arc}\)//g" | sort > ${tops_packages}
 comm -23 ${tops_packages} ${deb_base} > ${tops_EB}
 
-deborphan                    -nap1 | awk '{print $2}' | sort > ${RoaS_plus_tops} 
+deborphan                    -nap1 --no-show-section | \
+    sed "s/\(\:all\|\:${arc}\)//g" | sort > ${RoaS_plus_tops}
 comm -23 ${RoaS_plus_tops} ${deb_base} > ${RoaS_tops_EB}
 
-deborphan --ignore-recommends -ap1 | awk '{print $2}' | sort > ${rRec_plus_tops}
+deborphan --ignore-recommends -ap1 --no-show-section | \
+    sed "s/\(\:all\|\:${arc}\)//g" | sort > ${rRec_plus_tops}
 comm -23 ${rRec_plus_tops} ${deb_base} > ${rRec_tops_EB}
 
-deborphan --ignore-suggests   -ap1 | awk '{print $2}' | sort > ${rSug_plus_tops}
+deborphan --ignore-suggests   -ap1 --no-show-section | \
+    sed "s/\(\:all\|\:${arc}\)//g" | sort > ${rSug_plus_tops}
 comm -23 ${rSug_plus_tops} ${deb_base} > ${rSug_tops_EB}
 
 comm -23 ${RoaS_tops_EB} ${tops_EB} > ${RoaS_EB}
@@ -66,7 +73,7 @@ cat ${rRec_EB} ${rSug_EB} | sort > ${rRoS_EB}
 comm -23 ${RoaS_EB} ${rRoS_EB} > ${rRaS_EB}
 
 
-echo -e "\
+echo "\
    rDepends = packages are depended by others\n\
 rRecommends = packages are recommended by others\n\
   rSuggests = packages are suggested by others\n\
@@ -77,37 +84,40 @@ rRecommends = packages are recommended by others\n\
 comm -23 ${manu_EB} ${RoaS_tops_EB} > ${dep_manu}
 sed -i '1i\\n------ rDepends manually (configure to automatic) ------' ${dep_manu}
 
+comm -23 ${rRec_EB} ${manu_EB} > ${rec_auto}
+sed -i '1i\\n------ rRecommends and RaS automaticly ------' ${rec_auto}
+
+comm -23 ${rRaS_EB} ${manu_EB} > ${ras_auto}
+sed -i '1i------' ${ras_auto}
+
+comm -12 ${rRec_EB} ${manu_EB} > ${rec_manu}
+sed -i '1i\\n------ rRecommends and RaS manually ------' ${rec_manu}
+
+comm -12 ${rRaS_EB} ${manu_EB} > ${ras_manu}
+sed -i '1i------' ${ras_manu}
+
 comm -23 ${rSug_EB} ${manu_EB} > ${sug_auto}
 sed -i '1i\\n------ rSuggests automaticly (purge with pacman -Rns) ------' ${sug_auto}
 
 comm -12 ${rSug_EB} ${manu_EB} > ${sug_manu}
-sed -i '1i---' ${sug_manu}
-
-comm -23 ${rRaS_EB} ${manu_EB} > ${ras_auto}
-sed -i '1i---' ${ras_auto}
-
-comm -12 ${rRaS_EB} ${manu_EB} > ${ras_manu}
-sed -i '1i---' ${ras_manu}
-
-comm -23 ${rRec_EB} ${manu_EB} > ${rec_auto}
-sed -i '1i\\n------ rRecommends and RaS automaticly ------' ${rec_auto}
-
-comm -12 ${rRec_EB} ${manu_EB} > ${rec_manu}
-sed -i '1i\\n------ rRecommends and RaS manually ------' ${rec_manu}
+sed -i '1i\\n------ rSuggests manually (purge or consider as tops) ------' ${sug_manu}
 
 comm -23 ${tops_EB} ${manu_EB} > ${tops_auto}
 sed -i '1i\\n------ tops automaticly (configure to manual or purge) ------' ${tops_auto}
 
 comm -12 ${tops_EB} ${manu_EB} > ${tops_manu}
-sed -i '1i\\n------ tops and rSuggest manually ------' ${tops_manu}
+sed -i '1i\\n------ tops manually ------' ${tops_manu}
+
+comm -23 ${deb_base} ${manu_packages} > ${base_auto}
+sed -i '1i\\n------ base automaticly ------' ${base_auto}
 
 comm -12 ${deb_base} ${manu_packages} > ${base_manu}
 sed -i '1i\\n------ base manually ------' ${base_manu}
 
-if [[ ${1} == "-b" ]]; then
-    cat ${this_manu} ${dep_manu} ${sug_auto} ${rec_auto} ${ras_auto} ${rec_manu} \
-        ${ras_manu} ${tops_auto} ${tops_manu} ${sug_manu} ${base_manu}
+if [ "${1}" = "-b" ]; then
+    cat ${this_manu} ${dep_manu} ${rec_auto} ${ras_auto} ${rec_manu} ${ras_manu} \
+        ${sug_auto} ${sug_manu} ${tops_auto} ${tops_manu} ${base_auto} ${base_manu}
 else
-    cat ${this_manu} ${dep_manu} ${sug_auto} ${rec_auto} ${ras_auto} ${rec_manu} \
-        ${ras_manu} ${tops_auto} ${tops_manu} ${sug_manu}
+    cat ${this_manu} ${dep_manu} ${rec_auto} ${ras_auto} ${rec_manu} ${ras_manu} \
+        ${sug_auto} ${sug_manu} ${tops_auto} ${tops_manu}
 fi
