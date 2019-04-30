@@ -82,7 +82,7 @@ rRecommends = packages are recommended by others\n\
 " > ${this_manu}
 
 comm -23 ${manu_EB} ${RoaS_tops_EB} > ${dep_manu}
-sed -i '1i\\n------ rDepends manually (configure to automatic) ------' ${dep_manu}
+sed -i '1i\\n------ rDepends manually (configure as automaticly) ------' ${dep_manu}
 
 comm -23 ${rRec_EB} ${manu_EB} > ${rec_auto}
 sed -i '1i\\n------ rRecommends and RaS automaticly ------' ${rec_auto}
@@ -100,16 +100,16 @@ comm -23 ${rSug_EB} ${manu_EB} > ${sug_auto}
 sed -i '1i\\n------ rSuggests automaticly (purge with pacman -Rns) ------' ${sug_auto}
 
 comm -12 ${rSug_EB} ${manu_EB} > ${sug_manu}
-sed -i '1i\\n------ rSuggests manually (purge or consider as tops) ------' ${sug_manu}
+sed -i '1i\\n------ rSuggests manually (equivalent to tops) ------' ${sug_manu}
 
 comm -23 ${tops_EB} ${manu_EB} > ${tops_auto}
-sed -i '1i\\n------ tops automaticly (configure to manual or purge) ------' ${tops_auto}
+sed -i '1i\\n------ tops automaticly (configure as manually or purge) ------' ${tops_auto}
 
 comm -12 ${tops_EB} ${manu_EB} > ${tops_manu}
 sed -i '1i\\n------ tops manually ------' ${tops_manu}
 
 comm -23 ${deb_base} ${manu_packages} > ${base_auto}
-sed -i '1i\\n------ base automaticly ------' ${base_auto}
+sed -i '1i\\n------ base automaticly (configure as manually) ------' ${base_auto}
 
 comm -12 ${deb_base} ${manu_packages} > ${base_manu}
 sed -i '1i\\n------ base manually ------' ${base_manu}
