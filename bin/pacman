@@ -374,21 +374,13 @@ _format_output()
 #    egrep --color=auto '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
 }
 
-_reverse_depends()
+_apt-cache_rdepends()
 {
-    _pkgName=${@}
-    if [ ${#} -gt 1 ]; then
-        _pkgName=${2}
-    fi
     apt-cache rdepends --no-recommends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
         | sed -e '1i\Apt-cache Reverse Depends:' \
         -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
-
-    _depends=$(deborphan -nap1 --no-show-section -d ${_pkgName} \
-        | sed -e '1i\Deborphan Reverse Depends:' -e '1d' -e 's/^\ *//' | sort -u)
-    sed -e '2,$s/$/,/' -e '$s/,//' <<< "${_depends}" | xargs | _format_output
 
     apt-cache rdepends --no-pre-depends --no-depends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
@@ -396,18 +388,25 @@ _reverse_depends()
         -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
 
-    _RaD=$(deborphan --ignore-suggests -ap1 --no-show-section -d ${_pkgName} \
-        | sed -e '1i\Deborphan Reverse Recommends:' -e '1d' -e 's/^\ *//' | sort -u)
-    comm -23 <(echo "${_RaD}") <(echo "${_depends}") \
-        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
-
     apt-cache rdepends --no-pre-depends --no-depends --no-recommends \
         --no-conflicts --no-breaks --no-replaces --no-enhances ${@} \
         | sed -e '1i\Apt-cache Reverse Suggests:' \
         -e '1,2d' -e 's/|//g' -e 's/^\ *//' | sort -u \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+}
 
-    _SaD=$(deborphan --ignore-recommends -ap1 --no-show-section -d ${_pkgName} \
+_deborphan_rdepends()
+{
+    _depends=$(deborphan -nap1 --no-show-section -d ${@} \
+        | sed -e '1i\Deborphan Reverse Depends:' -e '1d' -e 's/^\ *//' | sort -u)
+    sed -e '2,$s/$/,/' -e '$s/,//' <<< "${_depends}" | xargs | _format_output
+
+    _RaD=$(deborphan --ignore-suggests -ap1 --no-show-section -d ${@} \
+        | sed -e '1i\Deborphan Reverse Recommends:' -e '1d' -e 's/^\ *//' | sort -u)
+    comm -23 <(echo "${_RaD}") <(echo "${_depends}") \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
+
+    _SaD=$(deborphan --ignore-recommends -ap1 --no-show-section -d ${@} \
         | sed -e '1i\Deborphan Severse Suggests:' -e '1d' -e 's/^\ *//' | sort -u)
     comm -23 <(echo "${_SaD}") <(echo "${_depends}") \
         | sed -e '2,$s/$/,/' -e '$s/,//' | xargs | _format_output
@@ -440,7 +439,8 @@ dpkg_Qi()
         dpkg-query -s ${_pkg} | sed '/^Installed/a\Installed-Reason: '${_mark} \
             | sed -r '/^Priority|^Section|^Maintainer|^Architecture|^Multi-Arch|^Source/d' \
             | _format_output
-        _reverse_depends "--installed" ${_pkg}
+        _apt-cache_rdepends "--installed" ${_pkg}
+        _deborphan_rdepends ${_pkg}
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
 }
@@ -535,7 +535,7 @@ dpkg_Sii()
     for _pkg in ${_ary[@]}
     do
         dpkg_Si ${_pkg}
-        _reverse_depends ${_pkg}
+        _apt-cache_rdepends ${_pkg}
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
 }
