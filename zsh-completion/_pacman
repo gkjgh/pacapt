@@ -44,7 +44,6 @@ _pacman_opts_pkgfile=(
 	'*--nodeps[Skip dependency checks]'
 	'*--assume-installed[Add virtual package to satisfy dependencies]'
 	'--dbonly[Only remove database entry, do not remove files]'
-	'--force[Overwrite conflicting files]'
 	'--needed[Do not reinstall up to date packages]'
 	'--asdeps[mark packages as non-explicitly installed]'
 	'--asexplicit[mark packages as explicitly installed]'
@@ -101,9 +100,7 @@ _pacman_opts_database=(
 
 _pacman_opts_files=(
 	{-l,--list}'[List the files owned by the queried package]:package:_pacman_completions_all_packages'
-	{-o,--owns}'[Query the package that owns]:files:_files'
-	{-s,--search}'[Search package file names for matching strings]:files:_files'
-	{-x,--regex}'[Enable searching using regluar expressions]:regex:'
+	{-x,--regex}'[Enable searching using regular expressions]:regex:'
 	{-y,--refresh}'[Download fresh files databases from the server]'
 	'--machinereadable[Produce machine-readable output]'
 	{-q,--quiet}'[Show less information for query and search]'
@@ -135,7 +132,6 @@ _pacman_opts_sync_modifiers=(
 	'*--ignoregroup[Ignore a group upgrade]:package group:_pacman_completions_all_groups'
 	'--asdeps[Install packages as non-explicitly installed]'
 	'--asexplicit[Install packages as explicitly installed]'
-	'--force[Overwrite conflicting files]'
 	'--print-format[Specify how the targets should be printed]'
 )
 
@@ -281,16 +277,6 @@ _pacman_action_version() {
 
 # provides completions for package groups
 _pacman_completions_all_groups() {
-	local -a cmd groups
-	_pacman_get_command
-	groups=( $(_call_program groups $cmd[@] -Sg) )
-	typeset -U groups
-
-	if [[ ${words[CURRENT-1]} == '--ignoregroup' ]]; then
-		_sequence compadd -S ',' "$@" -a groups
-	else
-		compadd "$@" -a groups
-	fi
 }
 
 # provides completions for packages available from repositories
@@ -303,11 +289,6 @@ _pacman_completions_all_packages() {
 
 # provides completions for package groups
 _pacman_completions_installed_groups() {
-	local -a cmd groups
-	_pacman_get_command
-	groups=(${(o)${(f)"$(_call_program groups $cmd[@] -Qg)"}% *})
-	typeset -U groups
-	compadd "$@" -a groups
 }
 
 # provides completions for installed packages
@@ -325,11 +306,6 @@ _pacman_all_packages() {
 
 # provides completions for repository names
 _pacman_completions_repositories() {
-	local -a cmd repositories
-	repositories=(${(o)${${${(M)${(f)"$(</etc/pacman.conf)"}:#\[*}/\[/}/\]/}:#options})
-	# Uniq the array
-	typeset -U repositories
-	compadd "$@" -a repositories
 }
 
 # builds command for invoking pacman in a _call_program command - extracts
@@ -348,7 +324,7 @@ _pacman_get_command() {
 
 # main dispatcher
 _pacman_zsh_comp() {
-	local -a args cmds;
+	local -a args cmds
 	local tmp
 	args=( ${${${(M)words:#-*}#-}:#-*} )
 	for tmp in $words; do
@@ -443,7 +419,7 @@ _pacman_zsh_comp() {
 					if (( ${(w)#cmds} == 1 )); then
 						_pacman_action_help
 					else
-						return 0;
+						return 0
 					fi
 					;;
 				*--sync*)
