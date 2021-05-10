@@ -45,7 +45,7 @@ base_manu=${tmp}/base_manu
 mkdir ${tmp}
 trap 'rm -rf ${tmp}' EXIT
 
-cat ~/bin/base-packages | sort > ${deb_base}
+cat /usr/local/etc/base-packages | sort > ${deb_base}
 
 apt-mark showmanual | sort > ${manu_packages}
 comm -23 ${manu_packages} ${deb_base} | sort > ${manu_EB}
