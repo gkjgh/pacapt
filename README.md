@@ -3,7 +3,7 @@ Tools for people who prefer to or has to use command line for maintaining system
 Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
 ## File Description and Position Suggests
-pacman: Arch Linux package manager.<br/>
+pacman: Arch Linux package manager for Debian Fedora<br/>
 directory: /usr/local/bin/
 
 _pacman: pacman for zsh completion<br/>
@@ -12,7 +12,10 @@ directory: /usr/local/share/zsh/site-functions/
 MIP: manually installed packages. Depends on deborphan.<br/>
 directory: /usr/local/bin/
 
-base-packages: customize base packages.<br/>
+base-packages: customize base packages<br/>
+directory: /usr/local/etc/
+
+essential-packages: Debian essential packages. Source: [ReduceDebian](https://wiki.debian.org/ReduceDebian)<br/>
 directory: /usr/local/etc/
 
 ## about MIP
