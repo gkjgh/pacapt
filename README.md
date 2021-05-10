@@ -4,16 +4,16 @@ Reference: [Pacman/Rosetta](https://wiki.archlinux.org/index.php/Pacman/Rosetta)
 
 ## File Description and Position Suggests
 pacman: Arch Linux package manager.<br/>
-dir: /usr/local/bin/
+directory: /usr/local/bin/
 
 _pacman: pacman for zsh completion<br/>
-dir: /usr/local/share/zsh/site-functions/
+directory: /usr/local/share/zsh/site-functions/
 
 MIP: manually installed packages. Depends on deborphan.<br/>
-dir: ~/bin/
+directory: /usr/local/bin/
 
 base-packages: customize base packages.<br/>
-dir: ~/bin/
+directory: /usr/local/etc/
 
 ## about MIP
 This is a tool for finding out top packages and checking out dependcies. "top" means the package is not required by any other packages. Top and base packages should be manually installed, otherswise should be automaticly installed. So after correct the "Installed Reason", which can be seen with "pacman -Qi", administrator can purge the whole tree with "pacman -Rns" without any leaves (trash) packages.
