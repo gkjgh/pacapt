@@ -20,7 +20,7 @@ This is a tool for finding out top packages and checking out dependcies. "top" m
 
 Parameter ex for showing automaticly installed recommends packages and base packages.<br/>
 Example:<br/>
-\# ~/bin/MIP > mip<br/>
+\# MIP > mip<br/>
 \# vim mip<br/>
 \# sudo apt-mark auto ${pkgs_should_be_auto_showing_in_mip_file}<br/>
 \# sudo pacman -Rns ${top_pkg_you_want_to_purge_recursively}
