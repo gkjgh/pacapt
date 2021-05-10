@@ -1,40 +1,11 @@
-#!/usr/bin/env bash
-#
-# Purpose: A wrapper for all Unix package managers
+#!/bin/bash
+
+# Purpose: A wrapper for Debian Fedora
+# Author : Anh K. Huynh, Kevin J. Goldman
 # License: Fair license (http://www.opensource.org/licenses/fair)
 # Source : http://github.com/icy/pacapt/
-# Version: 2.4.2
-# Authors: Anh K. Huynh et al.
 
-# Copyright (C) 2010 - 2019 \
-#                           | 10sr (10sr)
-#                           | Alexander Dupuy (dupuy)
-#                           | Anh K. Huynh (icy)
-#                           | Antony Lee (anntzer)
-#                           | Alex Lyon (Arcterus)
-#                           | Carl X. Su (bcbcarl)
-#                           | Cuong Manh Le (Gnouc)
-#                           | Daniel YC Lin (dlintw)
-#                           | Danny George (dangets)
-#                           | Darshit Shah (darnir)
-#                           | Dmitry Kudriavtsev (dkudriavtsev)
-#                           | Eric Crosson (EricCrosson)
-#                           | Evan Relf (evanrelf)
-#                           | GijsTimmers (GijsTimmers)
-#                           | Hà-Dương Nguyễn (cmpitg)
-#                           | Huy Ngô (NgoHuy)
-#                           | Kevin Goldman (gkjgh)
-#                           | James Pearson (xiongchiamiov)
-#                           | Janne Heß (dasJ)
-#                           | Jiawei Zhou (4679)
-#                           | Karol Blazewicz
-#                           | Kevin Brubeck (unhammer)
-#                           | Konrad Borowski (xfix)
-#                           | Kylie McClain (somasis)
-#                           | Valerio Pizzi (Pival81)
-#                           | Siôn Le Roux (sinisterstuf)
-#                           | Thiago Perrotta (thiagowfx)
-#                           | Vojtech Letal (letalvoj)
+# Copyright (C) 2010 - 2014 Anh K. Huynh
 #
 # Usage of the works is permitted provided that this instrument is
 # retained with the works, so that any entity that uses the works is
@@ -48,33 +19,6 @@ _print_pacapt_version() {
 pacapt version '2.4.2'
 
 Copyright (C) 2010 - 2019 \\
-                          | 10sr (10sr)
-                          | Alexander Dupuy (dupuy)
-                          | Anh K. Huynh (icy)
-                          | Antony Lee (anntzer)
-                          | Alex Lyon (Arcterus)
-                          | Carl X. Su (bcbcarl)
-                          | Cuong Manh Le (Gnouc)
-                          | Daniel YC Lin (dlintw)
-                          | Danny George (dangets)
-                          | Darshit Shah (darnir)
-                          | Dmitry Kudriavtsev (dkudriavtsev)
-                          | Eric Crosson (EricCrosson)
-                          | Evan Relf (evanrelf)
-                          | GijsTimmers (GijsTimmers)
-                          | Hà-Dương Nguyễn (cmpitg)
-                          | Huy Ngô (NgoHuy)
-                          | James Pearson (xiongchiamiov)
-                          | Janne Heß (dasJ)
-                          | Jiawei Zhou (4679)
-                          | Karol Blazewicz
-                          | Kevin Brubeck (unhammer)
-                          | Konrad Borowski (xfix)
-                          | Kylie McClain (somasis)
-                          | Valerio Pizzi (Pival81)
-                          | Siôn Le Roux (sinisterstuf)
-                          | Thiago Perrotta (thiagowfx)
-                          | Vojtech Letal (letalvoj)
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any
@@ -172,6 +116,7 @@ _removing_is_dangerous() {
   return 1
 }
 
+# Detect package type from /etc/issue
 _issue2pacman() {
   local _pacman
 
@@ -194,6 +139,7 @@ _issue2pacman() {
   && _PACMAN="$_pacman" && return
 }
 
+# Detect package type
 _PACMAN_detect() {
   _issue2pacman sun_tools "SunOS" && return
   _issue2pacman pacman "Arch Linux" && return
@@ -252,6 +198,8 @@ _PACMAN_detect() {
   return 1
 }
 
+# Translate -w option. Please note this is only valid when installing
+# a package from remote, aka. when '-S' operation is performed.
 _translate_w() {
 
   echo "$_EOPT" | $GREP -q ":w:" || return 0
@@ -302,6 +250,7 @@ _translate_debug() {
   echo "-v"
 }
 
+# Translate the --noconfirm option.
 _translate_noconfirm() {
 
   echo "$_EOPT" | $GREP -q ":noconfirm:" || return 0
@@ -370,8 +319,8 @@ _format_output()
     else
         _CO=$(echo never)
     fi
-    egrep --color=${_CO} '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
-#    egrep --color=auto '[A-Z].+:(\s|$)|$' "${@}" | sed '/^$/d'
+    egrep --color=${_CO} '[A-Z].+\s+:(\s|$)|$' "${@}" | sed '/^$/d'
+#     egrep --color=auto '[A-Z].+\s+:(\s|$)|$' "${@}" | sed '/^$/d'
 }
 
 _apt-cache_rdepends()
@@ -417,11 +366,6 @@ _dpkg_init() {
   export GREP_COLOR='1;37'
 }
 
-dpkg_Q()
-{
-    dpkg-query -l "${@}" | grep '^[ihr]'
-}
-
 dpkg_Qs()
 {
     dpkg-query -l "*${@}*" | sed '/^[up]/d'
@@ -437,7 +381,7 @@ dpkg_Qi()
         _mark=$([[ $(apt-mark showauto ${_pkg}) == ${_pkg} ]] \
             && echo auto || echo manual)
         dpkg-query -s ${_pkg} | sed '/^Installed/a\Installed-Reason: '${_mark} \
-            | sed -r '/^Priority|^Section|^Maintainer|^Architecture|^Multi-Arch|^Source/d' \
+            | sed -r '/^Priority|^Section|^Maintainer|^Multi-Arch|^Source/d' \
             | _format_output
         _apt-cache_rdepends "--installed" ${_pkg}
         _deborphan_rdepends ${_pkg}
@@ -462,6 +406,16 @@ dpkg_Ql()
 dpkg_Qo()
 {
     dpkg-query -S "${@}"
+}
+
+dpkg_Qe()
+{
+    apt-mark showmanual
+}
+
+dpkg_Qm()
+{
+    apt --installed list | grep ,local
 }
 
 dpkg_Qu()
@@ -521,7 +475,7 @@ dpkg_Si()
     for _pkg in ${_ary[@]}
     do
         apt-cache show --no-all-versions ${_pkg} | sed -r \
-            '/^Maintainer|^Architecture|^Description-md5|^MD5sum|^SHA|::/d' \
+            '/^Maintainer|^Description-md5|^MD5sum|^SHA|::/d' \
             | _format_output
         if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
     done
@@ -550,11 +504,6 @@ dpkg_Scc()
     apt-get autoclean && apt-get clean
 }
 
-dpkg_R()
-{
-    apt-get remove "${@}"
-}
-
 dpkg_Rs()
 {
     apt-get remove "${@}" && apt-get autoremove
@@ -572,13 +521,150 @@ dpkg_Rns()
 }
 
 
+_dnf_init() {
+    export LC_ALL=C
+    export GREP_COLOR='1;37'
+    metaCheck="^Last metadata expiration check"
+}
+
+dnf_Qs()
+{
+    dnf list --installed "*${@}*"
+}
+
+dnf_Qi()
+{
+    dnf info --installed "${@}" | _format_output
+    echo "Requires-pre :" | _format_output
+    dnf repoquery --installed --requires-pre "${@}" | sed -e '2,$s/$/,/' -e '$s/,//' | xargs
+    echo "Depends on   :" | _format_output
+    dnf repoquery --installed --requires "${@}" | sed -e '2,$s/$/,/' -e '$s/,//' | xargs
+    echo "Required by  :" | _format_output
+    dnf repoquery --installed --whatrequires "${@}"
+}
+
+dnf_Ql()
+{
+    rpm -ql "${@}"
+}
+
+dnf_Qo()
+{
+    rpm -qf "${@}"
+}
+
+dnf_Qe()
+{
+    dnf repoquery --userinstalled --queryformat '%{name}.%{arch}  %{version}  %{release}'
+}
+
+dnf_Qm()
+{
+    dnf list extras | sed "/${metaCheck}/d"
+    dnf list obsoletes | sed "/${metaCheck}/d"
+}
+
+dnf_Qu()
+{
+    dnf list updates "${@}"
+    echo "------"
+    dnf check-update "${@}"
+}
+
+dnf_U()
+{
+    rpm -i "${@}"
+}
+
+dnf_S()
+{
+    dnf install "${@}"
+}
+
+dnf_Sy()
+{
+    dnf clean expire-cache
+    dnf check-update
+}
+
+dnf_Su()
+{
+    dnf upgrade "${@}"
+}
+
+dnf_Syu()
+{
+    dnf clean expire-cache
+    dnf check-update
+    dnf upgrade "${@}"
+}
+
+dnf_Sw()
+{
+    dnf download "${@}"
+}
+
+dnf_Ss()
+{
+    dnf search "${@}" | sed "/${metaCheck}/d"
+}
+
+dnf_Si()
+{
+    dnf info "${@}" | sed "/${metaCheck}/d" | _format_output
+}
+
+dnf_Sii()
+{
+    dnf info "${@}" | sed "/${metaCheck}/d" | _format_output
+    echo "Requires-pre :" | _format_output
+    dnf repoquery --requires-pre "${@}" | sed "/${metaCheck}/d" \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs
+    echo "Depends on   :" | _format_output
+    dnf repoquery --requires "${@}" | sed "/${metaCheck}/d" \
+        | sed -e '2,$s/$/,/' -e '$s/,//' | xargs
+    echo "Required by  :" | _format_output
+    dnf repoquery --whatrequires "${@}"
+}
+
+dnf_Sc()
+{
+    dnf clean packages
+}
+
+dnf_Scc()
+{
+    dnf clean all
+}
+
+dnf_Rs()
+{
+    dnf remove "${@}" && dnf autoremove
+}
+
+dnf_Rn()
+{
+    dnf remove "${@}" && rpmconf --owner="${@}" --clean
+}
+
+dnf_Rns()
+{
+    dnf remove "${@}"
+    dnf autoremove
+    rpmconf --owner="${@}" --clean
+    rpmconf --all
+}
+
+
 _validate_operation() {
+# dpkg
   case "$1" in
-  "dpkg_Q") ;;
   "dpkg_Qs") ;;
   "dpkg_Qi") ;;
   "dpkg_Ql") ;;
   "dpkg_Qo") ;;
+  "dpkg_Qe") ;;
+  "dpkg_Qm") ;;
   "dpkg_Qu") ;;
   "dpkg_U") ;;
   "dpkg_S") ;;
@@ -591,10 +677,31 @@ _validate_operation() {
   "dpkg_Sii") ;;
   "dpkg_Sc") ;;
   "dpkg_Scc") ;;
-  "dpkg_R") ;;
   "dpkg_Rs") ;;
   "dpkg_Rn") ;;
   "dpkg_Rns") ;;
+# dnf
+  "dnf_Qs") ;;
+  "dnf_Qi") ;;
+  "dnf_Ql") ;;
+  "dnf_Qo") ;;
+  "dnf_Qe") ;;
+  "dnf_Qm") ;;
+  "dnf_Qu") ;;
+  "dnf_U") ;;
+  "dnf_S") ;;
+  "dnf_Sy") ;;
+  "dnf_Su") ;;
+  "dnf_Syu") ;;
+  "dnf_Sw") ;;
+  "dnf_Ss") ;;
+  "dnf_Si") ;;
+  "dnf_Sii") ;;
+  "dnf_Sc") ;;
+  "dnf_Scc") ;;
+  "dnf_Rs") ;;
+  "dnf_Rn") ;;
+  "dnf_Rns") ;;
   *) return 1 ;;
   esac
 }
