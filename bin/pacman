@@ -319,8 +319,8 @@ _format_output()
     else
         _CO=$(echo never)
     fi
-    egrep --color=${_CO} '[A-Z].+\s+:(\s|$)|$' "${@}" | sed '/^$/d'
-#     egrep --color=auto '[A-Z].+\s+:(\s|$)|$' "${@}" | sed '/^$/d'
+    egrep --color=${_CO} '[A-Z].+\s*:(\s|$)|$' "${@}" | sed '/^$/d'
+#     egrep --color=auto '[A-Z].+\s*:(\s|$)|$' "${@}" | sed '/^$/d'
 }
 
 _apt-cache_rdepends()
@@ -469,28 +469,28 @@ dpkg_Ss()
 
 dpkg_Si()
 {
-    _ary=(${@})
-    _len=${#_ary[@]}
-    if [[ ${_len} -eq 0 ]]; then return; fi
-    for _pkg in ${_ary[@]}
+    _arySi=(${@})
+    _lenSi=${#_arySi[@]}
+    if [[ ${_lenSi} -eq 0 ]]; then return; fi
+    for _pkg in ${_arySi[@]}
     do
         apt-cache show --no-all-versions ${_pkg} | sed -r \
             '/^Maintainer|^Description-md5|^MD5sum|^SHA|::/d' \
             | _format_output
-        if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
+        if [[ ${_pkg} != ${_arySi[$((${_lenSi} - 1))]} ]]; then echo -e "\n"; fi
     done
 }
 
 dpkg_Sii()
 {
-    _ary=(${@})
-    _len=${#_ary[@]}
-    if [[ ${_len} -eq 0 ]]; then return; fi
-    for _pkg in ${_ary[@]}
+    _aryII=(${@})
+    _lenII=${#_aryII[@]}
+    if [[ ${_lenII} -eq 0 ]]; then return; fi
+    for _pkg in ${_aryII[@]}
     do
         dpkg_Si ${_pkg}
         _apt-cache_rdepends ${_pkg}
-        if [[ ${_pkg} != ${_ary[$((${_len} - 1))]} ]]; then echo -e "\n"; fi
+        if [[ ${_pkg} != ${_aryII[$((${_lenII} - 1))]} ]]; then echo -e "\n"; fi
     done
 }
 
